@@ -4,11 +4,25 @@ import zipfile
 import io
 import pandas as pd
 from datetime import datetime
+import boto3
 
-# URL de l'API
+
+# Define the bucket name
+bucket_name = "raw"
+# Public API URL
 url = "https://transport.data.gouv.fr/api/datasets/64635525318cc75a9a8a771f"
 
-# Requête pour obtenir les données JSON
+
+# Connect to LocalStack S3
+s3 = boto3.client(
+    "s3",
+    endpoint_url="http://localhost:4566",  # LocalStack endpoint
+    aws_access_key_id="test", 
+    aws_secret_access_key="test"
+)
+
+
+# Fetch data from API
 response = requests.get(url)
 if response.status_code == 200:
     data = response.json()
@@ -16,47 +30,57 @@ else:
     print(f"Erreur : {response.status_code}")
     data = None
 
-# Créer le dossier "data/" s'il n'existe pas
-output_dir = "data"
-os.makedirs(output_dir, exist_ok=True)
 
-# Vérifier que le JSON contient des données
+# Check if the bucket exists
+buckets = s3.list_buckets().get("Buckets", [])
+bucket_names = [bucket["Name"] for bucket in buckets]
+
+if bucket_name in bucket_names:
+    print(f"Bucket '{bucket_name}' already exists.")
+else:
+    # Create the bucket if it doesn't exist
+    s3.create_bucket(Bucket=bucket_name)
+    print(f"Bucket '{bucket_name}' created successfully!")
+
+
+# Check if data is available
 if data:
-    # Parcourir "history" pour extraire les URLs et métadonnées des fichiers
+    # Process each entry in the history
     for entry in data["history"]:
         payload = entry.get("payload", {})
         zip_metadata = payload.get("zip_metadata", [])
         resource_url = payload.get("resource_latest_url")
 
-        print(f"Téléchargement depuis : {resource_url}")
+        print(f"Download from : {resource_url}")
 
-        # Télécharger et traiter les fichiers de l'archive ZIP
+        # Download ZIP file
         response = requests.get(resource_url)
         if response.status_code == 200:
             with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-                for file_meta in zip_metadata:
+                for file_meta in zip_metadata: # Process each file in the ZIP
                     file_name = file_meta["file_name"]
                     last_modified_datetime = file_meta["last_modified_datetime"]
 
-                    # Convertir la date "last_modified_datetime" en format YYYY-MM-DD
+                    # Convert "last_modified_datetime" to YYYY-MM-DD format
                     last_modified_date = datetime.strptime(last_modified_datetime, "%Y-%m-%dT%H:%M:%S").strftime("%Y-%m-%d")
 
-                    print(f"Extraction de {file_name} (modifié le {last_modified_date})")
+                    print(f"Extraction of {file_name} from {last_modified_date} date.")
 
-                    # Charger le fichier dans un DataFrame
                     with z.open(file_name) as file:
                         try:
-                            df = pd.read_csv(file) 
-                            # Chemin complet du fichier dans le dossier "data/"
-                            output_file_path = os.path.join(output_dir, f"{file_name.replace('.txt', '')}_{last_modified_date}.csv")
+                            # Create a 'folder' structure in S3 based on the file name
+                            folder_name = file_name.replace(".txt", "")  # Remove .txt to create folder name
+                            s3_key = f"{folder_name}/{folder_name}_{last_modified_date}.csv"  # S3 key with folder structure
 
-                            # Sauvegarder le fichier CSV avec la date incluse
-                            df.to_csv(output_file_path, index=False)
-                            print(f"{file_name} sauvegardé sous {output_file_path}")
+                            # Upload to S3
+                            s3.upload_fileobj(file, bucket_name, s3_key)
+                            print(f"{file_name} saved.")
+
                         except Exception as e:
-                            print(f"Erreur lors de la lecture de {file_name}: {e}")
+                            print(f"Error during upload: {e}")
+
         else:
-            print(f"Erreur lors du téléchargement : {response.status_code}")
+            print(f"Error during download : {response.status_code}")
 
 else:
-    print("Aucune donnée disponible.")
+    print("No data available.")
