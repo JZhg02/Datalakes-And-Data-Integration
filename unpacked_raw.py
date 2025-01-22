@@ -46,7 +46,7 @@ if data:
                     # Charger le fichier dans un DataFrame
                     with z.open(file_name) as file:
                         try:
-                            df = pd.read_csv(file)  # Lire jusqu'à 1000 lignes pour tester
+                            df = pd.read_csv(file) 
                             # Chemin complet du fichier dans le dossier "data/"
                             output_file_path = os.path.join(output_dir, f"{file_name.replace('.txt', '')}_{last_modified_date}.csv")
 
