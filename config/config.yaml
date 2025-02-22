@@ -5,3 +5,8 @@ data_source:
 s3:
   endpoint_url: "http://localhost:4566"
   bucket_name: "raw"
+
+cassandra:
+  host: "localhost"
+  port: 9042
+  keyspace: "staging"
