@@ -11,7 +11,7 @@ services:
       - DEBUG=1
     volumes:
       - localstack_data:/var/lib/localstack
-    restart: "no"
+    # restart: "no"
 
   cassandra:
     image: cassandra:4.0
@@ -24,21 +24,20 @@ services:
       - CASSANDRA_RACK=rack1
     volumes:
       - cassandra_data:/var/lib/cassandra
-    restart: "no"
+    # restart: "no"
 
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
+  postgresql:
+    image: timescale/timescaledb:latest-pg15
+    container_name: postgresql
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: curated
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      POSTGRES_DB: curated
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
     volumes:
-      - mysql_data:/var/lib/mysql
-    restart: "no"
+      - postgresql_data:/var/lib/postgresql/data
+    # restart: "no"
 
   airflow:
     image: apache/airflow:2.7.0
@@ -53,9 +52,9 @@ services:
       - ./dags:/opt/airflow/dags  # DAGs still need to be in your project folder
       - ./logs:/opt/airflow/logs  # Logs for easier access during debugging
     command: ["webserver"]
-    restart: "no"
+    # restart: "no"
 
 volumes:
   localstack_data:
   cassandra_data:
-  mysql_data:
+  postgresql_data:
