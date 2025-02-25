@@ -10,3 +10,8 @@ cassandra:
   host: "localhost"
   port: 9042
   keyspace: "staging"
+
+postgresql:
+  host: "localhost"
+  port: 5432
+  database: "curated"
