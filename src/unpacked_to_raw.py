@@ -8,7 +8,9 @@ from datetime import datetime, timedelta
 
 
 def create_bucket_if_not_exists(s3_client, bucket_name):
-    """Check if bucket exists, create it if not."""
+    """
+    Check if bucket exists, create it if not.
+    """
     buckets = s3_client.list_buckets().get("Buckets", [])
     bucket_names = [bucket["Name"] for bucket in buckets]
     
@@ -20,13 +22,17 @@ def create_bucket_if_not_exists(s3_client, bucket_name):
 
 
 def generate_date_range(days):
-    """Generate a list of dates for the last N days."""
+    """
+    Generate a list of dates for the last N days.
+    """
     today = datetime.today()
     return [(today - timedelta(days=i + 1)).strftime("%Y-%m-%d") for i in range(days)]
 
 
 def request_file_generation(base_url, api_key, date, pollutant_code):
-    """Request generation of statistics file for a given date and pollutant."""
+    """
+    Request generation of statistics file for a given date and pollutant.
+    """
     export_url = f"{base_url}/MoyH/export?date={date}&polluant={pollutant_code}"
     print(f"Requesting file generation via: {export_url}")
     
@@ -42,7 +48,9 @@ def request_file_generation(base_url, api_key, date, pollutant_code):
 
 
 def download_file(base_url, api_key, file_id, initial_delay=5, max_attempts=5, wait_between_attempts=2):
-    """Wait for an initial delay, then poll for file availability and download when ready."""
+    """
+    Wait for an initial delay, then poll for file availability and download when ready.
+    """
     download_url = f"{base_url}/download?id={file_id}"
     
     # Wait before starting to poll the API (function is called multiple times and file generation from API side takes time)
@@ -80,7 +88,9 @@ def download_file(base_url, api_key, file_id, initial_delay=5, max_attempts=5, w
 
 
 def upload_to_s3(s3_client, bucket_name, content, s3_key):
-    """Upload content to S3 bucket."""
+    """
+    Upload content to S3 bucket.
+    """
     try:
         s3_client.upload_fileobj(io.BytesIO(content), bucket_name, s3_key)
         print(f"File saved to S3: s3://{bucket_name}/{s3_key}")
@@ -91,7 +101,9 @@ def upload_to_s3(s3_client, bucket_name, content, s3_key):
 
 
 def process_pollutant_data(base_url, api_key, s3_client, bucket_name, date, pollutant):
-    """Process data for a single pollutant on a specific date."""
+    """
+    Process data for a single pollutant on a specific date.
+    """
     pollutant_code = pollutant["code"]
     pollutant_short_name = pollutant["short_name"]
     print(f"\nProcessing pollutant: {pollutant_short_name} (Code: {pollutant_code})")
@@ -113,7 +125,6 @@ def process_pollutant_data(base_url, api_key, s3_client, bucket_name, date, poll
 
 
 def main():
-    """Main function to orchestrate the data fetching process."""
     # Load configurations
     with open("config/config.yaml", "r") as file:
         config = yaml.safe_load(file)
