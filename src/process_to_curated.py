@@ -28,13 +28,66 @@ def load_table_to_dataframe(session, table_name):
     return df
 
 
+def convert_units(df, table_name):
+    """
+    Convert specific pollutant values from their given units to g/L.
+    """
+
+    unit_conversion = {
+        "mg-m3": 1e-3,  # Milligrams per cubic meter to g/L
+        "µg-m3": 1e-6,  # Micrograms per cubic meter to g/L
+        "ng-m3": 1e-9,  # Nanograms per cubic meter to g/L
+    }
+
+    # Convert the specified pollutant values to g/L
+    # Table_name is the name of the table from which the DataFrame was loaded
+    for unit, factor in unit_conversion.items():
+        if f"{table_name}_valeur" in df.columns:
+            df[f"{table_name}_valeur_g_par_L"] = df[f"{table_name}_valeur"] * factor
+        if f"{table_name}_valeur_brute" in df.columns:
+            df[f"{table_name}_valeur_brute_g_par_L"] = df[f"{table_name}_valeur_brute"] * factor
+
+    return df
+
+
+def aggregate_valeurs(df):
+    """
+    Aggregate all _valeur and _valeur_brute columns into total_valeur_particule.
+    Ensures numeric values before summing.
+    """
+    # Retrieve all columns ending with '_valeur' and '_valeur_brute' and does not end in '_type_de_valeur'
+    valeur_columns = [col for col in df.columns if col.endswith("_valeur") and not col.endswith("_type_de_valeur")]
+    valeur_brute_columns = [col for col in df.columns if col.endswith("_valeur_brute")]
+    cols = valeur_columns + valeur_brute_columns
+
+    # Using pandas sum method
+    # df["total_valeur_particule"] = df[cols].sum(axis=1, skipna=True)
+
+    # Iterate over each row in the DataFrame and compute the sum of the specified columns
+    total_valeur_particule = []
+    for idx in df.index:
+        row_sum = 0  # Initialize the sum for the current row
+        for col in cols:
+            value = df.at[idx, col]  # Access the value at the given row and column
+            if pd.notnull(value):    # Only add if the value is not NaN
+                row_sum += value
+        total_valeur_particule.append(row_sum)
+
+    # Assign the computed sums as a new column in the DataFrame
+    df["total_valeur_particule"] = total_valeur_particule
+
+    return df
+
+
 def process_table_dataframe(df, table_name):
     """
-    Process the DataFrame from a table:
-      - If the 'valeur' column exists, drop rows where 'valeur' is empty (None/NaN).
-      - Drop the unwanted columns 'date_de_fin' and 'polluant'.
-      - Rename the remaining columns (except 'code_site' and 'date_de_debut') to include the table name as a prefix.
-      - Group the DataFrame by ('code_site', 'date_de_debut') using the first available record.
+    Process the DataFrame:
+      - Filter out rows where 'valeur' is empty.
+      - Drop unwanted columns.
+      - Rename columns with table name prefix.
+      - Convert units for specified pollutants.
+      - Aggregate values.
+      - Group by (code_site, date_de_debut).
     """
     # If 'valeur' exists, filter out rows with empty 'valeur'
     if 'valeur' in df.columns:
@@ -44,15 +97,11 @@ def process_table_dataframe(df, table_name):
     df = df.drop(columns=[col for col in ['date_de_fin', 'polluant'] if col in df.columns], errors='ignore')
     
     # Rename columns by prefixing with the table name (except for the grouping keys)
-    rename_dict = {
-        col: f"{table_name}_{col}"
-        for col in df.columns if col not in ['code_site', 'date_de_debut']
-    }
+    rename_dict = {col: f"{table_name}_{col}" for col in df.columns if col not in ['code_site', 'date_de_debut']}
     df = df.rename(columns=rename_dict)
-    
-    # Group by the common keys to ensure one row per (code_site, date_de_debut)
-    # Here we use the first available record in each group.
-    df = df.groupby(['code_site', 'date_de_debut'], as_index=False).first()
+
+    df = convert_units(df, table_name)
+
     return df
 
 
@@ -104,6 +153,7 @@ def main():
         print("No tables found in Cassandra for keyspace:", keyspace)
         return
     
+    # Load each table into a DataFrame and process it
     processed_dfs = []
     for table in table_names:
         print(f"Processing table: {table}")
@@ -112,7 +162,7 @@ def main():
             print(f"Table '{table}' is empty. Skipping.")
             continue
         
-        # Process each DataFrame (including filtering out rows with empty 'valeur')
+        # Process each DataFrame and append to the list of processed DataFrames
         df_processed = process_table_dataframe(df, table)
         if df_processed.empty:
             print(f"After filtering, table '{table}' has no rows. Skipping.")
@@ -125,6 +175,9 @@ def main():
 
     # Merge all processed DataFrames on code_site and date_de_debut.
     merged_df = merge_dataframes(processed_dfs)
+
+    # Aggregate all _valeur and _valeur_brute columns into total_valeur_particule and total_valeur_brute_particule respectively.
+    merged_df = aggregate_valeurs(merged_df)
     
     # Display the merged (curated) DataFrame.
     print("Curated DataFrame:")

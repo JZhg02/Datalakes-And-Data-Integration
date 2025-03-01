@@ -5,7 +5,7 @@ import io
 import yaml
 import unicodedata
 import time
-import datetime  # Import datetime for date conversion
+import datetime
 import boto3
 from cassandra.cluster import Cluster
 
@@ -32,33 +32,53 @@ def normalize_column_name(col):
     return col
 
 
+def convert_value(col_name, value):
+    """
+    Convert CSV string values to the appropriate Python types based on the column.
+    """
+    if value == "" or value is None:
+        return None
+
+    # Convert date columns to datetime objects.
+    if col_name in ('date_de_debut', 'date_de_fin'):
+        # Try parsing with a datetime format. Adjust the format if needed.
+        try:
+            # If a time component is present:
+            if " " in value:
+                return datetime.datetime.strptime(value, "%Y/%m/%d %H:%M:%S")
+            else:
+                return datetime.datetime.strptime(value, "%Y/%m/%d")
+        except Exception as e:
+            print(f"Error parsing date for column {col_name} with value '{value}': {e}")
+            return None
+
+    # Convert numeric fields to float
+    elif col_name in ('valeur', 'valeur_brute', 'taux_de_saisie'):
+        try:
+            return float(value)
+        except Exception as e:
+            print(f"Error converting float for column {col_name} with value '{value}': {e}")
+            return None
+
+    return value
+
+
 def create_cassandra_keyspace(session, keyspace):
-    """Create a Cassandra keyspace if it does not exist."""
+    """
+    Create a Cassandra keyspace if it does not exist.
+    """
+    # SimpleStrategy and replication factor 1 for demo
     session.execute(f"""
         CREATE KEYSPACE IF NOT EXISTS {keyspace}
-        WITH replication = {{ 'class': 'SimpleStrategy', 'replication_factor': 1 }}
+        WITH replication = {{ 'class': 'SimpleStrategy', 'replication_factor': 1 }} 
     """)
     session.set_keyspace(keyspace)
 
 
-def get_s3_files(s3, bucket_name, prefix):
-    """Get list of files from S3 with the given prefix."""
-    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-    if "Contents" not in response:
-        return []
-    return response["Contents"]
-
-
-def process_s3_file(s3, bucket_name, key):
-    """Read and parse a CSV file from S3."""
-    obj_response = s3.get_object(Bucket=bucket_name, Key=key)
-    content = obj_response["Body"].read().decode("utf-8")
-    reader = csv.reader(io.StringIO(content), delimiter=';')
-    return list(reader)
-
-
 def create_cassandra_table(session, table_name):
-    """Create a Cassandra table with the specified columns."""
+    """
+    Create a Cassandra table with the specified columns.
+    """
     create_table_query = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
             date_de_debut timestamp,
@@ -90,40 +110,33 @@ def create_cassandra_table(session, table_name):
     session.execute(create_table_query)
 
 
-# ============ parallel to process_table_dataframe ============
-def convert_value(col_name, value):
-    """Convert CSV string values to the appropriate Python types based on the column."""
-    if value == "" or value is None:
-        return None
+def get_s3_files(s3, bucket_name, prefix):
+    """
+    Get list of files from S3 with the given prefix/key/particle_code.
+    """
+    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+    if "Contents" not in response:
+        return []
+    return response["Contents"]
 
-    # Convert date columns to datetime objects.
-    if col_name in ('date_de_debut', 'date_de_fin'):
-        # Try parsing with a datetime format. Adjust the format if needed.
-        try:
-            # If a time component is present:
-            if " " in value:
-                return datetime.datetime.strptime(value, "%Y/%m/%d %H:%M:%S")
-            else:
-                return datetime.datetime.strptime(value, "%Y/%m/%d")
-        except Exception as e:
-            print(f"Error parsing date for column {col_name} with value '{value}': {e}")
-            return None
 
-    # Convert numeric fields to float
-    elif col_name in ('valeur', 'valeur_brute', 'taux_de_saisie'):
-        try:
-            return float(value)
-        except Exception as e:
-            print(f"Error converting float for column {col_name} with value '{value}': {e}")
-            return None
-
-    return value
+def process_s3_file(s3, bucket_name, key):
+    """
+    Read and parse a CSV file from S3 bucket.
+    """
+    obj_response = s3.get_object(Bucket=bucket_name, Key=key)
+    content = obj_response["Body"].read().decode("utf-8")
+    reader = csv.reader(io.StringIO(content), delimiter=';')
+    return list(reader)
 
 
 def insert_data_into_cassandra(session, table_name, columns, data):
-    """Insert data rows into the Cassandra table after converting values."""
+    """
+    Insert data rows into the Cassandra table after converting values.
+    """
+    # Prepare the insert query
     insert_columns = ", ".join(columns)
-    placeholders = ", ".join(["?"] * len(columns))
+    placeholders = ", ".join(["?"] * len(columns)) # Prepare placeholders for the prepared statement : (?, ?, ?, ...)
     insert_query = f"INSERT INTO {table_name} ({insert_columns}) VALUES ({placeholders}) IF NOT EXISTS"
     prepared = session.prepare(insert_query)
     
@@ -134,14 +147,16 @@ def insert_data_into_cassandra(session, table_name, columns, data):
 
 
 def process_pollutant(pollutant, s3, session, bucket_name):
-    """Process a single pollutant's data files."""
+    """
+    Process a single pollutant's data files.
+    """
     pollutant_code = pollutant["code"]
     pollutant_short_name = pollutant["short_name"]
     table_name = normalize_column_name(pollutant_short_name)
     
     print(f"\n=== Processing pollutant: {pollutant_short_name} (Code: {pollutant_code}) ===")
     
-    # List all objects in S3 for the given pollutant folder
+    # List all objects in S3 for the given pollutant folder/key
     prefix = f"{pollutant_code}/"
     files = get_s3_files(s3, bucket_name, prefix)
     
@@ -153,7 +168,7 @@ def process_pollutant(pollutant, s3, session, bucket_name):
     all_rows = []
     header_normalized = None
 
-    seen = set() # Rows already seen
+    seen = set() # Rows already seen (to avoid duplicates)
     
     for obj in files:
         key = obj["Key"]
@@ -169,11 +184,11 @@ def process_pollutant(pollutant, s3, session, bucket_name):
         normalized_header = [normalize_column_name(col) for col in header]
         print(normalized_header)
         
-        # Initialize header if first file or validate header
+        # Initialize header if first file or validate header if not
         if header_normalized is None:
             header_normalized = normalized_header
             all_rows.append(header_normalized)
-        elif normalized_header != header_normalized:
+        elif normalized_header != header_normalized: # Should match the first file's header but just in case
             print(f"Header mismatch in file {key}. Skipping file.")
             continue
         
