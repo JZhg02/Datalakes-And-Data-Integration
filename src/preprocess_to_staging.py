@@ -4,6 +4,7 @@ import csv
 import io
 import yaml
 import unicodedata
+import time
 import datetime  # Import datetime for date conversion
 import boto3
 from cassandra.cluster import Cluster
@@ -151,6 +152,8 @@ def process_pollutant(pollutant, s3, session, bucket_name):
     # Process all files and collect data
     all_rows = []
     header_normalized = None
+
+    seen = set() # Rows already seen
     
     for obj in files:
         key = obj["Key"]
@@ -162,9 +165,11 @@ def process_pollutant(pollutant, s3, session, bucket_name):
         
         # Normalize header names
         header = rows[0]
+        print(header)
         normalized_header = [normalize_column_name(col) for col in header]
+        print(normalized_header)
         
-        # Initialize or validate header
+        # Initialize header if first file or validate header
         if header_normalized is None:
             header_normalized = normalized_header
             all_rows.append(header_normalized)
@@ -172,9 +177,10 @@ def process_pollutant(pollutant, s3, session, bucket_name):
             print(f"Header mismatch in file {key}. Skipping file.")
             continue
         
-        # Add non-empty data rows
+        # Add non-empty data rows and skip duplicates
         for row in rows[1:]:
-            if row and any(cell.strip() for cell in row):
+            if row and any(cell.strip() for cell in row) and tuple(row) not in seen:
+                seen.add(tuple(row))
                 all_rows.append(row)
     
     # Check if we have any data
@@ -182,27 +188,20 @@ def process_pollutant(pollutant, s3, session, bucket_name):
         print(f"No data rows found for pollutant {pollutant_short_name}.")
         return
     
-    # Remove duplicate rows (keeping the header)
-    unique_data = [all_rows[0]]  # include header
-    seen = set()
-    
-    for row in all_rows[1:]:
-        row_tuple = tuple(row)
-        if row_tuple not in seen:
-            seen.add(row_tuple)
-            unique_data.append(row)
-    
-    print(f"Total unique rows for {pollutant_short_name}: {len(unique_data)-1}")
+    print(f"Total rows for {pollutant_short_name}: {len(all_rows)-1}")
     
     # Create Cassandra table and insert data
     create_cassandra_table(session, table_name)
     print(f"Created table {table_name}.")
     
-    insert_data_into_cassandra(session, table_name, header_normalized, unique_data[1:])
+    insert_data_into_cassandra(session, table_name, header_normalized, all_rows[1:])
     print(f"Insertion into table '{table_name}' done.")
 
 
 def main():
+    
+    start_time = time.time()
+
     # Load config variables from config/config.yaml
     with open("config/config.yaml", "r") as f:
         config = yaml.safe_load(f)
@@ -233,7 +232,8 @@ def main():
     for pollutant in pollutants:
         print("pollutant: ", pollutant)
         process_pollutant(pollutant, s3, session, bucket_name)
-
+    
+    print(f"Total time taken: {(time.time() - start_time) / 60} minutes.")
 
 if __name__ == "__main__":
     main()

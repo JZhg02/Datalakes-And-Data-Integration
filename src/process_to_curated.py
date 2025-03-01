@@ -1,6 +1,7 @@
 import os
 import yaml
 import pandas as pd
+import time
 from cassandra.cluster import Cluster
 from sqlalchemy import create_engine
 
@@ -84,6 +85,9 @@ def ingest_dataframe_to_postgres(df, table_name, pg_config):
 
 
 def main():
+
+    start_time = time.time()
+
     # Load configuration (ensure config/config.yaml exists)
     with open("config/config.yaml", "r") as f:
         config = yaml.safe_load(f)
@@ -140,8 +144,6 @@ def main():
     # Load PostgreSQL configuration
     pg_config = config["postgresql"]
     # Add postgres_user and postgres_password to pg_config from .env
-    # POSTGRES_USER="test"
-    # POSTGRES_PASSWORD="test"
     pg_config["user"] = os.getenv("POSTGRES_USER")
     pg_config["password"] = os.getenv("POSTGRES_PASSWORD")
     print("PostgreSQL configuration:", pg_config)
@@ -151,6 +153,8 @@ def main():
 
     # Ingest the second DataFrame into a different table called "curated_all_valeur".
     ingest_dataframe_to_postgres(df_all_valeur, "curated_all_valeur", pg_config)
+
+    print(f"Total time taken: {(time.time() - start_time) / 60} minutes.")
 
 if __name__ == "__main__":
     main()

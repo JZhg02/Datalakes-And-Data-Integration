@@ -1,6 +1,6 @@
 data_source:
   base_url: "https://www.geodair.fr/api-ext" # See api documentation and get key here: https://www.geodair.fr/donnees/api 
-  last_n_days: 2
+  last_n_days: 4
 
 s3:
   endpoint_url: "http://localhost:4566"

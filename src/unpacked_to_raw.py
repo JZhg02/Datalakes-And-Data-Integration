@@ -41,25 +41,40 @@ def request_file_generation(base_url, api_key, date, pollutant_code):
         return None
 
 
-def download_file(base_url, api_key, file_id, max_attempts=3):
-    """Poll for file availability and download when ready."""
+def download_file(base_url, api_key, file_id, initial_delay=5, max_attempts=5, wait_between_attempts=2):
+    """Wait for an initial delay, then poll for file availability and download when ready."""
     download_url = f"{base_url}/download?id={file_id}"
-    attempt = 0
     
+    # Wait before starting to poll the API (function is called multiple times and file generation from API side takes time)
+    print(f"Waiting for {initial_delay} seconds before starting checks...")
+    time.sleep(initial_delay)
+    
+    attempt = 0
     while attempt < max_attempts:
         response = requests.get(download_url, headers={"apikey": api_key})
         
-        if response.status_code == 200:
-            print("File is ready for download.")
+        # Try to parse the response as JSON
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
 
-            return response.content
-        elif response.status_code == 429:
-            raise Exception("API rate limit exceeded. 15/h is the limit. Try again after 1 hour.")
-        else:
-            print("File not ready yet, waiting 2 seconds...")
-            time.sleep(2)
-            attempt += 1
-    
+        # Check if the JSON contains a 'status' field
+        if data and "status" in data:
+            if data["status"] == 412:
+                print("File not ready yet, waiting 2 seconds before next check...")
+                time.sleep(wait_between_attempts)
+                attempt += 1
+                continue
+            elif data["status"] == 429:
+                raise Exception("API rate limit exceeded. 15/h is the limit. Try again after 1 hour.")
+
+        # If no error status is detected, assume the file is ready for download.
+        print("File is ready for download.")
+        print(response)
+        print(response.content[:100])
+        return response.content
+
     print(f"Failed to download file after {max_attempts} attempts.")
     return None
 
