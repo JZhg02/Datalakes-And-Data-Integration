@@ -5,26 +5,24 @@ services:
     image: localstack/localstack
     container_name: localstack
     ports:
-      - "4566:4566"  # Main LocalStack gateway
+      - "4566:4566"
     environment:
       - SERVICES=s3
       - DEBUG=1
     volumes:
       - localstack_data:/var/lib/localstack
-    # restart: "no"
 
   cassandra:
     image: cassandra:4.0
     container_name: cassandra
     ports:
-      - "9042:9042"  # CQL Port
+      - "9042:9042"
     environment:
       - CASSANDRA_CLUSTER_NAME=DataLakeCluster
       - CASSANDRA_DC=datacenter1
       - CASSANDRA_RACK=rack1
     volumes:
       - cassandra_data:/var/lib/cassandra
-    # restart: "no"
 
   postgresql:
     image: timescale/timescaledb:latest-pg15
@@ -37,24 +35,68 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgresql_data:/var/lib/postgresql/data
-    # restart: "no"
 
-  airflow:
-    image: apache/airflow:2.7.0
-    container_name: airflow
+  redis:
+    image: redis:latest
+    container_name: redis
     ports:
-      - "8080:8080"  # Airflow webserver
+      - "6379:6379"
+
+  airflow-db:
+    image: postgres:15
+    container_name: airflow-db
     environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////usr/local/airflow/airflow.db
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    ports:
+      - "5433:5432"
     volumes:
-      - ./dags:/opt/airflow/dags  # DAGs still need to be in your project folder
-      - ./logs:/opt/airflow/logs  # Logs for easier access during debugging
-    command: ["webserver"]
-    # restart: "no"
+      - airflow_db_data:/var/lib/postgresql/data
+
+  airflow-init:
+    image: apache/airflow:2.7.0
+    depends_on:
+      - airflow-db
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    entrypoint: ["/bin/bash", "-c", "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"]
+
+  airflow-webserver:
+    image: apache/airflow:2.7.0
+    depends_on:
+      - airflow-init
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./src:/opt/airflow/src  # Monte le dossier local src/ dans le conteneur
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.0
+    depends_on:
+      - airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./src:/opt/airflow/src  # Monte le dossier local src/ dans le conteneur
+    command: scheduler
 
 volumes:
   localstack_data:
   cassandra_data:
   postgresql_data:
+  airflow_db_data:
