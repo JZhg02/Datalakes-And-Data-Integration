@@ -105,7 +105,7 @@ def create_cassandra_table(session, table_name):
             code_qualite text,
             validite text, 
             PRIMARY KEY (code_site, date_de_debut) 
-        );
+        ) WITH CLUSTERING ORDER BY (date_de_debut ASC);
     """
     session.execute(create_table_query)
 
@@ -180,9 +180,7 @@ def process_pollutant(pollutant, s3, session, bucket_name):
         
         # Normalize header names
         header = rows[0]
-        print(header)
         normalized_header = [normalize_column_name(col) for col in header]
-        print(normalized_header)
         
         # Initialize header if first file or validate header if not
         if header_normalized is None:
@@ -248,7 +246,8 @@ def main():
         print("pollutant: ", pollutant)
         process_pollutant(pollutant, s3, session, bucket_name)
     
-    print(f"Total time taken: {(time.time() - start_time) / 60} minutes.")
+    elapsed_time = time.time() - start_time
+    print(f"Total time taken: {elapsed_time // 60} minutes and {elapsed_time % 60} seconds.")
 
 if __name__ == "__main__":
     main()

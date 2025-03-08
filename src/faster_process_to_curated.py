@@ -1,6 +1,7 @@
 import os
 import yaml
 import pandas as pd
+import numpy as np
 import time
 from cassandra.cluster import Cluster
 from sqlalchemy import create_engine
@@ -22,7 +23,6 @@ def load_table_to_dataframe(session, table_name):
     """
     query = f"SELECT * FROM {table_name}"
     rows = session.execute(query)
-    # DataFrame from list of rows.
     df = pd.DataFrame(list(rows))
     return df
 
@@ -30,6 +30,7 @@ def load_table_to_dataframe(session, table_name):
 def convert_units(df):
     """
     Convert pollutant values from their given units to g/L based on the unit column.
+    Uses NumPy for efficient operations.
     """
     # Define conversion factors for each unit.
     unit_conversion = {
@@ -53,17 +54,13 @@ def convert_units(df):
             # Backward-fill missing values in unit column
             df.loc[:, unit_column] = df[unit_column].bfill()
         
-        # Create a conversion factor column
-        df[f"{table_prefix}_conversion_factor"] = df[unit_column].map(unit_conversion)
+        # Convert units using NumPy vectorized operations
+        conversion_factors = df[unit_column].map(unit_conversion).values
         
-        # Convert value columns
         for value_suffix in ["_valeur", "_valeur_brute"]:
             value_col = f"{table_prefix}{value_suffix}"
             if value_col in df.columns:
-                df[f"{value_col}_g_par_L"] = df[value_col] * df[f"{table_prefix}_conversion_factor"]
-        
-        # Remove the temporary conversion factor column
-        df.drop(columns=[f"{table_prefix}_conversion_factor"], inplace=True)
+                df.loc[:, f"{value_col}_g_par_L"] = df[value_col].values * conversion_factors
     
     return df
 
@@ -76,22 +73,12 @@ def aggregate_valeurs(df):
     valeur_columns = [col for col in df.columns if col.endswith("_valeur_g_par_L") and not col.endswith("_type_de_valeur")]
     valeur_brute_columns = [col for col in df.columns if col.endswith("_valeur_brute_g_par_L")]
     cols = valeur_columns + valeur_brute_columns
-
-    # Using pandas sum method
-    # df["total_valeur_particule"] = df[cols].sum(axis=1, skipna=True)
-
-    # Iterate over each row in the DataFrame and compute the sum of the specified columns
-    total_valeur_particule = []
-    for idx in df.index:
-        row_sum = 0  # Initialize the sum for the current row
-        for col in cols:
-            value = df.at[idx, col]  # Access the value at the given row and column
-            if pd.notnull(value):    # Only add if the value is not NaN
-                row_sum += value
-        total_valeur_particule.append(row_sum)
-
-    # Assign the computed sums as a new column in the DataFrame
-    df["total_valeur_particule_g_par_L"] = total_valeur_particule
+    
+    if cols:
+        df.loc[:, "total_valeur_particule_g_par_L"] = np.nansum(df[cols].values, axis=1)
+    else:
+        df["total_valeur_particule_g_par_L"] = np.nan
+    
     return df
 
 
@@ -119,14 +106,14 @@ def shift_and_calculate_diff_6_hours_ago(df):
         # Ensure the column is numeric, coerce errors to NaN
         df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
 
-        # Shift the values by 6 hours (assuming the date_de_debut column is sorted by time)
-        shifted_col = df[value_col].shift(6)
+        # Shift the values by 6 hours using numpy roll
+        shifted_col = np.roll(df[value_col].values, 6)
 
-        # Replace NaNs in the shifted column with corresponding values from the original column
-        shifted_col.fillna(df[value_col], inplace=True)
+        # Replace the first 6 values (which are now shifted) with the original column values
+        shifted_col[:6] = df[value_col].iloc[:6].values
 
         # Calculate the difference between the current value and the shifted value
-        diff_col = df[value_col] - shifted_col
+        diff_col = df[value_col].values - shifted_col
         
         # Add the new difference column to the dataframe
         df[f"{value_col}_diff_6hrs"] = diff_col
@@ -145,11 +132,11 @@ def calculate_particle_variation(df):
         # Ensure the column is numeric, coerce errors to NaN
         df[value_col] = pd.to_numeric(df[value_col], errors='coerce')
 
-        # Shift the values by 6 hours (assuming the date_de_debut column is sorted by time)
-        shifted_col = df[value_col].shift(6)
+        # Shift the values by 6 hours (using numpy's shift equivalent)
+        shifted_col = np.roll(df[value_col].values, 6)
 
         # Calculate the percentage change between the current value and the shifted value
-        percentage_change_col = ((df[value_col] - shifted_col) / shifted_col) * 100
+        percentage_change_col = ((df[value_col].values - shifted_col) / shifted_col) * 100
 
         # Add the new difference and percentage change columns to the dataframe
         df[f"{value_col}_percent_change_6hrs"] = percentage_change_col
@@ -260,7 +247,7 @@ def main():
     merged_df = calculate_particle_variation(merged_df)
     
     print("Curated DataFrame:")
-    print(merged_df.head(10))
+    print(merged_df.head())
     print("Shape of the final DataFrame:", merged_df.shape)
 
     # Load PostgreSQL configuration and update with environment variables.
