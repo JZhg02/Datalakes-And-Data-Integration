@@ -29,10 +29,8 @@ services:
     container_name: postgresql
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_DB: curated
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+    env_file:
+      - .env
     volumes:
       - postgresql_data:/var/lib/postgresql/data
 
@@ -45,10 +43,8 @@ services:
   airflow-db:
     image: postgres:15
     container_name: airflow-db
-    environment:
-      POSTGRES_DB: airflow
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+    env_file:
+      - .env
     ports:
       - "5433:5432"
     volumes:
@@ -59,10 +55,8 @@ services:
     depends_on:
       - airflow-db
       - redis
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
-      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    env_file:
+      - .env
     entrypoint: ["/bin/bash", "-c", "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"]
 
   airflow-webserver:
@@ -71,10 +65,8 @@ services:
       - airflow-init
     ports:
       - "8080:8080"
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
-      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    env_file:
+      - .env
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -85,10 +77,8 @@ services:
     image: apache/airflow:2.7.0
     depends_on:
       - airflow-webserver
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
-      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    env_file:
+      - .env
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs

@@ -6,6 +6,8 @@ import io
 import boto3
 from datetime import datetime, timedelta
 
+from dotenv import load_dotenv
+load_dotenv()
 
 def create_bucket_if_not_exists(s3_client, bucket_name):
     """
@@ -125,6 +127,7 @@ def process_pollutant_data(base_url, api_key, s3_client, bucket_name, date, poll
 
 
 def main():
+
     # Load configurations
     with open("config/config.yaml", "r") as file:
         config = yaml.safe_load(file)
@@ -177,4 +180,4 @@ def main():
 if __name__ == "__main__":
     main()
     # to test if data has been saved to s3 enter the following command on the terminal
-    # aws --endpoint-url=http://localhost:4566 s3 ls raw --recursive
+    # aws --endpoint-url=http://localhost:4566 s3 ls raw --recursive'
