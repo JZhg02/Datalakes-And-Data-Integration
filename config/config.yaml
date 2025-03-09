@@ -5,6 +5,8 @@ data_source:
 s3:
   endpoint_url: "http://localhost:4566"
   bucket_name: "raw"
+  aws_access_key_id: "test"
+  aws_secret_access_key: "test"
 
 cassandra:
   host: "localhost"
@@ -15,3 +17,5 @@ postgresql:
   host: "localhost"
   port: 5432
   database: "curated"
+  postgres_user: "user"
+  postgres_password: "password"

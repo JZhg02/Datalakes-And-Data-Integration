@@ -191,7 +191,7 @@ def ingest_dataframe_to_postgres(df, table_name, pg_config):
     Ingest the given DataFrame into PostgreSQL.
     """
     engine_str = (
-        f"postgresql+psycopg2://{pg_config['user']}:{pg_config['password']}"
+        f"postgresql+psycopg2://{pg_config['postgres_user']}:{pg_config['postgres_password']}"
         f"@{pg_config['host']}:{pg_config['port']}/{pg_config['database']}"
     )
     engine = create_engine(engine_str)
@@ -263,10 +263,8 @@ def main():
     print(merged_df.head(10))
     print("Shape of the final DataFrame:", merged_df.shape)
 
-    # Load PostgreSQL configuration and update with environment variables.
+    # Load PostgreSQL configuration
     pg_config = config["postgresql"]
-    pg_config["user"] = os.getenv("POSTGRES_USER")
-    pg_config["password"] = os.getenv("POSTGRES_PASSWORD")
     print("PostgreSQL configuration:", pg_config)
     
     # Ingest the final DataFrame into PostgreSQL (table named "curated").
@@ -278,9 +276,9 @@ def main():
     return elapsed_time
 
 if __name__ == "__main__":
-    # main()
-    elapsed_times = []
-    for i in range(5):
-        elapsed_times.append(main())
-    print(elapsed_times)
-    print("Average time taken:", sum(elapsed_times) / len(elapsed_times))
+    main()
+    # elapsed_times = []
+    # for i in range(5):
+    #     elapsed_times.append(main())
+    # print(elapsed_times)
+    # print("Average time taken:", sum(elapsed_times) / len(elapsed_times))

@@ -373,9 +373,9 @@ def main():
     with open("config/pollutants.yaml", "r") as f:
         pollutants = yaml.safe_load(f)
 
-    # Get AWS credentials from environment variables
-    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    # Get AWS credentials from config
+    aws_access_key_id = config["s3"]["aws_access_key_id"]
+    aws_secret_access_key = config["s3"]["aws_secret_access_key"]
 
     # Connect to s3
     s3 = boto3.client(

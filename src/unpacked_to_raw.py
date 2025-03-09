@@ -136,8 +136,8 @@ def main():
     if not api_key:
         raise ValueError("GEODAIR_API_KEY is not set in the environment.")
     
-    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_access_key_id = config["s3"]["aws_access_key_id"]
+    aws_secret_access_key = config["s3"]["aws_secret_access_key"]
     
     # Get configuration parameters
     base_url = config["data_source"]["base_url"]
