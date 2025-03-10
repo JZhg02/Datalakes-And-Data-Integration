@@ -27,6 +27,7 @@ Connectez-vous avec les identifiants suivants :
 
 Une fois authentifié, vous pourrez accéder au DAG qui orchestre l'ensemble des transformations de données.
 
+Assurez-vous d'avoir un .env avec les clés API associés
 ---
 # API 
 
