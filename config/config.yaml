@@ -16,7 +16,8 @@ cassandra:
   keyspace: "staging"
 
 postgresql:
-  host: "localhost"
+  host: "postgresql"
+  #host: "localhost" # without Airflow
   port: 5432
   database: "curated"
   postgres_user: "user"

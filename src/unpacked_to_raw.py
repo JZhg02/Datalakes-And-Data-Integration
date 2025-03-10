@@ -130,6 +130,12 @@ def main():
         config = yaml.safe_load(file)
     with open("/opt/airflow/config/pollutants.yaml", "r") as file:
         pollutants = yaml.safe_load(file)
+
+    # Load configurations without Airflow
+    """with open("config/config.yaml", "r") as file:
+        config = yaml.safe_load(file)
+    with open("config/pollutants.yaml", "r") as file:
+        pollutants = yaml.safe_load(file)"""
     
     # Get GEODAIR API key and other environment variables
     api_key = os.getenv("GEODAIR_API_KEY")
