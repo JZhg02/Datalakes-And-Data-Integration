@@ -29,9 +29,9 @@ Une fois authentifié, vous pourrez accéder au DAG qui orchestre l'ensemble des
 
 Assurez-vous d'avoir un .env avec les clés API associés
 ---
-# API 
+## API 
 
-## Flask API 
+### Flask API 
 We choose to use flask for our API as it is a simple and efficient way to do an API Gateway for a POC such as this.
 To run the api please run the following command at the root of the project folder:
 (you may need to replace pyton by python3 or py)
@@ -39,7 +39,7 @@ To run the api please run the following command at the root of the project folde
 python src/main.py
 ```
 
-### Endpoints
+#### Endpoints
 We have 4 endpoints in our API, all are of the method POST:
 - /ingest/blob : This endpoint is used to ingest data from one or several blob made out of csv files. It takes a json payload with the following format:
 ```
@@ -65,6 +65,6 @@ OR
 ```
 - /ingest/fast : This endpoint is an optimised version of the endpoint /ingest. It takes the same possible payload.
 
-### TESTING ENDPOINTS
+#### TESTING ENDPOINTS
 
 TODO 
