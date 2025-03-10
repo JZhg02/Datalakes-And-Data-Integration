@@ -1,11 +1,33 @@
 # Datalakes-And-Data-Integration
 Project for the Datalakes &amp; Data Integration class
 
-## Docker compose
-```
-docker-compose up -d
-```
+## Airflow Setup
 
+Ce projet utilise Apache Airflow pour orchestrer le pipeline de transformation des données. L'environnement Airflow est déployé via Docker Compose, ce qui permet de démarrer simultanément tous les conteneurs nécessaires (Airflow, Redis, PostgreSQL, Localstack, Cassandra, etc.).
+
+### Démarrage de l'environnement Airflow
+
+Après avoir lancé la commande `docker-compose up -d`, les conteneurs suivants sont démarrés :
+
+- **airflow-init** : Initialise la base de métadonnées d'Airflow et crée un utilisateur administrateur par défaut.
+- **airflow-webserver** : Fournit l'interface web pour visualiser et gérer les DAGs.
+- **airflow-scheduler** : Planifie l'exécution des tâches selon les dépendances définies dans les DAGs.
+- **airflow-worker** : Exécute les tâches distribuées via Celery.
+
+### Accès au Webserver d'Airflow
+
+Ouvrez votre navigateur et accédez à :
+
+http://localhost:8080
+
+Connectez-vous avec les identifiants suivants :
+
+- **Username :** admin  
+- **Password :** admin  
+
+Une fois authentifié, vous pourrez accéder au DAG qui orchestre l'ensemble des transformations de données.
+
+---
 # API 
 
 ## Flask API 
