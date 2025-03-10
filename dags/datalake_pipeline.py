@@ -32,21 +32,23 @@ unpack_task = PythonOperator(
     dag=dag,
 )
 
-preprocess_task = PythonOperator(
-    task_id='preprocess_to_staging',
+# Mise à jour du nom de la tâche et du fichier script
+faster_preprocess_task = PythonOperator(
+    task_id='faster_preprocess_to_staging',
     python_callable=run_script,
-    op_args=['preprocess_to_staging.py'],
+    op_args=['faster_preprocess_to_staging.py'],
     provide_context=True,
     dag=dag,
 )
 
-process_task = PythonOperator(
-    task_id='process_to_curated',
+# Mise à jour du nom de la tâche et du fichier script
+faster_process_task = PythonOperator(
+    task_id='faster_process_to_curated',
     python_callable=run_script,
-    op_args=['process_to_curated.py'],
+    op_args=['faster_process_to_curated.py'],
     provide_context=True,
     dag=dag,
 )
 
 # Définition de l'ordre d'exécution
-unpack_task >> preprocess_task >> process_task
+unpack_task >> faster_preprocess_task >> faster_process_task

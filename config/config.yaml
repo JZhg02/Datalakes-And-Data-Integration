@@ -3,18 +3,21 @@ data_source:
   last_n_days: 2
 
 s3:
-  endpoint_url: "http://localhost:4566"
+  endpoint_url: "http://localstack:4566"
+  # endpoint_url: "http://localhost:4566" without airflow
   bucket_name: "raw"
   aws_access_key_id: "test"
   aws_secret_access_key: "test"
 
 cassandra:
-  host: "localhost"
+  #host: "localhost" without Airflow
+  host: "cassandra"
   port: 9042
   keyspace: "staging"
 
 postgresql:
-  host: "localhost"
+  host: "postgresql"
+  #host: "localhost" # without Airflow
   port: 5432
   database: "curated"
   postgres_user: "user"
