@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import pandas as pd
 import io
 from unpacked_to_raw import upload_to_S3_with_csv
+import requests 
 
 app = Flask(__name__)
 
@@ -59,8 +60,22 @@ def ingest():
 
     upload_to_S3_with_csv(request.files.getlist('files'))
 
+    # Trigger the Airflow DAG for the regular pipeline
+    dag_response = trigger_dag('regular_datalake_pipeline')
+    response['dag'] = dag_response
+
     return jsonify(response), 200
 
+
+
+# function to trigger the Airflow DAG
+def trigger_dag(dag_id):
+    url = f'http://localhost:8080/api/v1/dags/{dag_id}/dagRuns'
+    response = requests.post(url, auth=('airflow', 'airflow'), json={})
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {'error': response.text}
 
 @app.route('/ingest/fast', methods=['POST'])
 def ingest_fast():
@@ -80,6 +95,10 @@ def ingest_fast():
         return jsonify({'error': 'No valid CSV files or blobs provided'}), 400
 
     upload_to_S3_with_csv(request.files.getlist('files'))
+
+    # Trigger the Airflow DAG
+    dag_response = trigger_dag('datalake_pipeline')
+    response['dag'] = dag_response
 
     return jsonify(response), 200
 
