@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 import io
+from unpacked_to_raw import upload_to_S3_with_csv
 
 app = Flask(__name__)
 
@@ -56,13 +57,32 @@ def ingest():
     if not response:
         return jsonify({'error': 'No valid CSV files or blobs provided'}), 400
 
+    upload_to_S3_with_csv(request.files.getlist('files'))
+
     return jsonify(response), 200
 
 
 @app.route('/ingest/fast', methods=['POST'])
 def ingest_fast():
-    #should be an optimized version of ingest, should be at least 30% faster
-    return ingest()
+    response = {}
+
+    # Handle CSV files
+    if 'files' in request.files:
+        csv_response = ingest_csv()
+        response['csv'] = csv_response.get_json()
+
+    # Handle Blobs
+    if request.is_json:
+        blob_response = ingest_blob()
+        response['blobs'] = blob_response.get_json()
+
+    if not response:
+        return jsonify({'error': 'No valid CSV files or blobs provided'}), 400
+
+    upload_to_S3_with_csv(request.files.getlist('files'))
+
+    return jsonify(response), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)

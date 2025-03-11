@@ -180,6 +180,42 @@ def main():
             )
 
 
+def upload_to_S3_with_csv(files):
+    # get a list of csv and upload to s3
+    with open("/opt/airflow/config/config.yaml", "r") as file:
+        config = yaml.safe_load(file)
+    if (config is None):
+        raise ValueError("Config file not found")
+    if (files is None):
+        raise ValueError("No files provided")
+
+    aws_access_key_id = config["s3"]["aws_access_key_id"]
+    aws_secret_access_key = config["s3"]["aws_secret_access_key"]
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=config["s3"]["endpoint_url"],
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
+    )
+
+    bucket_name = config["s3"]["bucket_name"]
+    create_bucket_if_not_exists(s3, bucket_name)
+
+    for file in files:
+        if file.filename.endswith('.csv'):
+            try:
+                content = file.stream.read()
+                s3_key = f"raw/{file.filename}"
+                upload_to_s3(s3, bucket_name, content, s3_key)
+            except Exception as e:
+                print(f"Error uploading file {file.filename} to S3: {e}")
+        else:
+            print(f"Invalid file format: {file.filename}")
+
+
+
+
 if __name__ == "__main__":
     main()
     # to test if data has been saved to s3 enter the following command on the terminal

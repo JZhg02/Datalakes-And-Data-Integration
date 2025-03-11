@@ -5,3 +5,5 @@ pyyaml
 cassandra-driver
 SQLAlchemy
 psycopg2-binary
+flask
+apache-airflow
