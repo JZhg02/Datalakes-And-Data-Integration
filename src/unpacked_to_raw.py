@@ -47,7 +47,7 @@ def request_file_generation(base_url, api_key, date, pollutant_code):
         return None
 
 
-def download_file(base_url, api_key, file_id, initial_delay=5, max_attempts=5, wait_between_attempts=2):
+def download_file(base_url, api_key, file_id, initial_delay=2, max_attempts=5, wait_between_attempts=2):
     """
     Wait for an initial delay, then poll for file availability and download when ready.
     """

@@ -1,23 +1,23 @@
 data_source:
   base_url: "https://www.geodair.fr/api-ext" # See api documentation and get key here: https://www.geodair.fr/donnees/api 
-  last_n_days: 2
+  last_n_days: 3
 
 s3:
-  #endpoint_url: "http://localstack:4566"
-  endpoint_url: "http://localhost:4566" #without airflow
+  endpoint_url: "http://localstack:4566"
+  #endpoint_url: "http://localhost:4566" #without airflow
   bucket_name: "raw"
   aws_access_key_id: "test"
   aws_secret_access_key: "test"
 
 cassandra:
-  host: "localhost" #without Airflow
-  #host: "cassandra"
+  #host: "localhost" #without Airflow
+  host: "cassandra"
   port: 9042
   keyspace: "staging"
 
 postgresql:
-  #host: "postgresql"
-  host: "localhost" # without Airflow
+  host: "postgresql"
+  #host: "localhost" # without Airflow
   port: 5432
   database: "curated"
   postgres_user: "user"

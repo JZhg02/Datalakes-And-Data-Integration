@@ -3,6 +3,8 @@ import pandas as pd
 import io
 from unpacked_to_raw import upload_to_S3_with_csv
 import requests 
+import requests
+import base64
 
 app = Flask(__name__)
 
@@ -54,18 +56,42 @@ def ingest():
 
     return jsonify(dag_response), 200
 
+def trigger_dag(dag_id, conf=None):
+    # Airflow webserver URL
+    airflow_url = 'http://localhost:8080'
 
+    # Authentication credentials
+    username = 'admin'
+    password = 'admin'
 
+    # Endpoint for triggering DAGs
+    endpoint = f"{airflow_url}/api/v1/dags/{dag_id}/dagRuns"
 
-from airflow.api.client.local_client import Client
+    # Create basic auth header
+    auth_credentials = f"{username}:{password}"
+    auth_bytes = auth_credentials.encode('ascii')
+    auth_base64 = base64.b64encode(auth_bytes).decode('ascii')
 
-def trigger_dag(dag_id):
-    client = Client(None, None)
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {auth_base64}"
+    }
+
+    payload = {}
+    if conf:
+        payload["conf"] = conf
+
     try:
-        client.trigger_dag(dag_id=dag_id, conf={})
-        return {"message": "DAG triggered successfully"}
-    except Exception as e:
-        return {"error": str(e)}
+        response = requests.post(endpoint, headers=headers, json=payload)
+
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error triggering DAG: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response status: {e.response.status_code}")
+            print(f"Response body: {e.response.text}")
+        return None
 
 @app.route('/ingest/fast', methods=['POST'])
 def ingest_fast():
