@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 @app.route('/ingest/csv', methods=['POST'])
 def ingest_csv():
+    # to improve
     if 'files' not in request.files:
         return jsonify({'error': 'No files provided'}), 400
 
@@ -30,6 +31,7 @@ def ingest_csv():
 
 @app.route('/ingest/blob', methods=['POST'])
 def ingest_blob():
+    # to improve
     if not request.data:
         return jsonify({'error': 'No blob data provided'}), 400
 
@@ -43,28 +45,14 @@ def ingest_blob():
 
 @app.route('/ingest', methods=['POST'])
 def ingest():
-    response = {}
-
-    # Handle CSV files
-    if 'files' in request.files:
-        csv_response = ingest_csv()
-        response['csv'] = csv_response.get_json()
-
-    # Handle Blobs
-    if request.is_json:
-        blob_response = ingest_blob()
-        response['blobs'] = blob_response.get_json()
-
-    if not response:
-        return jsonify({'error': 'No valid CSV files or blobs provided'}), 400
 
     upload_to_S3_with_csv(request.files.getlist('files'))
 
     # Trigger the Airflow DAG for the regular pipeline
     dag_response = trigger_dag('regular_datalake_pipeline')
-    response['dag'] = dag_response
 
-    return jsonify(response), 200
+
+    return jsonify(dag_response), 200
 
 
 
