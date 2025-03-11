@@ -56,39 +56,26 @@ def ingest():
 
 
 
-# function to trigger the Airflow DAG
+
+from airflow.api.client.local_client import Client
+
 def trigger_dag(dag_id):
-    url = f'http://localhost:8080/api/v1/dags/{dag_id}/dagRuns'
-    response = requests.post(url, auth=('airflow', 'airflow'), json={})
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {'error': response.text}
+    client = Client(None, None)
+    try:
+        client.trigger_dag(dag_id=dag_id, conf={})
+        return {"message": "DAG triggered successfully"}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.route('/ingest/fast', methods=['POST'])
 def ingest_fast():
-    response = {}
-
-    # Handle CSV files
-    if 'files' in request.files:
-        csv_response = ingest_csv()
-        response['csv'] = csv_response.get_json()
-
-    # Handle Blobs
-    if request.is_json:
-        blob_response = ingest_blob()
-        response['blobs'] = blob_response.get_json()
-
-    if not response:
-        return jsonify({'error': 'No valid CSV files or blobs provided'}), 400
 
     upload_to_S3_with_csv(request.files.getlist('files'))
 
     # Trigger the Airflow DAG
     dag_response = trigger_dag('datalake_pipeline')
-    response['dag'] = dag_response
 
-    return jsonify(response), 200
+    return jsonify(dag_response), 200
 
 
 if __name__ == '__main__':

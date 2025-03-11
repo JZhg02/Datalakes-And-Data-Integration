@@ -181,18 +181,21 @@ def main():
 
 
 def upload_to_S3_with_csv(files):
-    # get a list of csv and upload to s3
-    with open("/opt/airflow/config/config.yaml", "r") as file:
+    """
+    Uploads a list of CSV files to S3 following the same naming convention as process_pollutant_data.
+    """
+    with open("../config/config.yaml", "r") as file:
         config = yaml.safe_load(file)
-    if (config is None):
+
+    if config is None:
         raise ValueError("Config file not found")
-    if (files is None):
+    if files is None:
         raise ValueError("No files provided")
 
     aws_access_key_id = config["s3"]["aws_access_key_id"]
     aws_secret_access_key = config["s3"]["aws_secret_access_key"]
 
-    s3 = boto3.client(
+    s3_client = boto3.client(
         "s3",
         endpoint_url=config["s3"]["endpoint_url"],
         aws_access_key_id=aws_access_key_id,
@@ -200,21 +203,36 @@ def upload_to_S3_with_csv(files):
     )
 
     bucket_name = config["s3"]["bucket_name"]
-    create_bucket_if_not_exists(s3, bucket_name)
+    create_bucket_if_not_exists(s3_client, bucket_name)
 
     for file in files:
-        if file.filename.endswith('.csv'):
+        if file.filename.endswith(".csv"):
             try:
                 content = file.stream.read()
-                s3_key = f"raw/{file.filename}"
-                upload_to_s3(s3, bucket_name, content, s3_key)
+
+                # Extract pollutant code and date from filename
+                base_filename = os.path.splitext(file.filename)[0]  # Remove .csv extension
+
+                if not base_filename.startswith("polluant-"):
+                    print(f"Skipping file {file.filename}: Invalid naming format.")
+                    continue
+
+                parts = base_filename.split("_")
+                if len(parts) != 2:
+                    print(f"Skipping file {file.filename}: Unexpected filename structure.")
+                    continue
+
+                pollutant_code = parts[0].replace("polluant-", "")  # Extract "04" from "polluant-04"
+                date_part = parts[1]  # Extract "2025-03-08"
+
+                s3_key = f"{pollutant_code}/polluant-{pollutant_code}_{date_part}.csv"
+
+                upload_to_s3(s3_client, bucket_name, content, s3_key)
+                print(f"Uploaded {file.filename} to S3 as {s3_key}")
             except Exception as e:
                 print(f"Error uploading file {file.filename} to S3: {e}")
         else:
             print(f"Invalid file format: {file.filename}")
-
-
-
 
 if __name__ == "__main__":
     main()
